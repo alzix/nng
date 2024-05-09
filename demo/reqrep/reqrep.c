@@ -26,39 +26,40 @@
 #include <nng/nng.h>
 #include <nng/protocol/reqrep0/rep.h>
 #include <nng/protocol/reqrep0/req.h>
-#include <nng/transport/zerotier/zerotier.h>
 #include <nng/supplemental/util/platform.h>
+#include <nng/transport/zerotier/zerotier.h>
 
 #define CLIENT "client"
 #define SERVER "server"
 #define DATECMD 1
 
-#define PUT64(ptr, u)                                        \
-	do {                                                 \
-		(ptr)[0] = (uint8_t)(((uint64_t)(u)) >> 56); \
-		(ptr)[1] = (uint8_t)(((uint64_t)(u)) >> 48); \
-		(ptr)[2] = (uint8_t)(((uint64_t)(u)) >> 40); \
-		(ptr)[3] = (uint8_t)(((uint64_t)(u)) >> 32); \
-		(ptr)[4] = (uint8_t)(((uint64_t)(u)) >> 24); \
-		(ptr)[5] = (uint8_t)(((uint64_t)(u)) >> 16); \
-		(ptr)[6] = (uint8_t)(((uint64_t)(u)) >> 8);  \
-		(ptr)[7] = (uint8_t)((uint64_t)(u));         \
+#define PUT64(ptr, u)                                          \
+	do {                                                   \
+		(ptr)[0] = (uint8_t) (((uint64_t) (u)) >> 56); \
+		(ptr)[1] = (uint8_t) (((uint64_t) (u)) >> 48); \
+		(ptr)[2] = (uint8_t) (((uint64_t) (u)) >> 40); \
+		(ptr)[3] = (uint8_t) (((uint64_t) (u)) >> 32); \
+		(ptr)[4] = (uint8_t) (((uint64_t) (u)) >> 24); \
+		(ptr)[5] = (uint8_t) (((uint64_t) (u)) >> 16); \
+		(ptr)[6] = (uint8_t) (((uint64_t) (u)) >> 8);  \
+		(ptr)[7] = (uint8_t) ((uint64_t) (u));         \
 	} while (0)
 
-#define GET64(ptr, v)                                 \
-	v = (((uint64_t)((uint8_t)(ptr)[0])) << 56) + \
-	    (((uint64_t)((uint8_t)(ptr)[1])) << 48) + \
-	    (((uint64_t)((uint8_t)(ptr)[2])) << 40) + \
-	    (((uint64_t)((uint8_t)(ptr)[3])) << 32) + \
-	    (((uint64_t)((uint8_t)(ptr)[4])) << 24) + \
-	    (((uint64_t)((uint8_t)(ptr)[5])) << 16) + \
-	    (((uint64_t)((uint8_t)(ptr)[6])) << 8) +  \
-	    (((uint64_t)(uint8_t)(ptr)[7]))
+#define GET64(ptr, v)                                   \
+	v = (((uint64_t) ((uint8_t) (ptr)[0])) << 56) + \
+	    (((uint64_t) ((uint8_t) (ptr)[1])) << 48) + \
+	    (((uint64_t) ((uint8_t) (ptr)[2])) << 40) + \
+	    (((uint64_t) ((uint8_t) (ptr)[3])) << 32) + \
+	    (((uint64_t) ((uint8_t) (ptr)[4])) << 24) + \
+	    (((uint64_t) ((uint8_t) (ptr)[5])) << 16) + \
+	    (((uint64_t) ((uint8_t) (ptr)[6])) << 8) +  \
+	    (((uint64_t) (uint8_t) (ptr)[7]))
 
 void
 fatal(const char *func, int rv)
 {
-	fprintf(stderr, "%s: %s\n", func, nng_strerror(rv));
+	printf("%s: %s\n", func, nng_strerror(rv));
+	nng_msleep(1000);
 	exit(1);
 }
 
@@ -72,36 +73,42 @@ showdate(time_t now)
 int
 server(const char *url)
 {
-	nng_socket sock;
-	nng_listener listener;
-	int        rv;
-	int        count = 0;
-
-	if ((rv = nng_rep0_open(&sock)) != 0) {
-		fatal("nng_rep0_open", rv);
-	}
-
-	if ((rv = nng_listener_create(&listener, sock, url)) != 0) {
-		fatal("nng_listener_create", rv);
-	}
-
-	if (strncmp(url, "zt://", 5) == 0) {
-		printf("ZeroTier transport will store its keys in current working directory.\n");
-		printf("The server and client instances must run in separate directories.\n");
-		nng_listener_set_string(listener, NNG_OPT_ZT_HOME, ".");
-		nng_listener_set_ms(listener, NNG_OPT_RECONNMINT, 1);
-		nng_listener_set_ms(listener, NNG_OPT_RECONNMAXT, 1000);
-		nng_socket_set_ms(sock, NNG_OPT_REQ_RESENDTIME, 2000);
-		nng_socket_set_ms(sock, NNG_OPT_RECVMAXSZ, 0);
-		nng_listener_set_ms(listener, NNG_OPT_ZT_PING_TIME, 10000);
-		nng_listener_set_ms(listener, NNG_OPT_ZT_CONN_TIME, 1000);
-	} else {
-		nng_socket_set_ms(sock, NNG_OPT_REQ_RESENDTIME, 2000);
-	}
-	nng_listener_start(listener, 0);
-
 	for (;;) {
-		char *   buf = NULL;
+		nng_socket   sock;
+		nng_listener listener;
+		int          rv;
+		int          count = 0;
+
+		if ((rv = nng_rep0_open(&sock)) != 0) {
+			fatal("nng_rep0_open", rv);
+		}
+
+		if ((rv = nng_listener_create(&listener, sock, url)) != 0) {
+			fatal("nng_listener_create", rv);
+		}
+
+		if (strncmp(url, "zt://", 5) == 0) {
+			printf("ZeroTier transport will store its keys in "
+			       "current working directory.\n");
+			printf("The server and client instances must run in "
+			       "separate directories.\n");
+			nng_listener_set_string(
+			    listener, NNG_OPT_ZT_HOME, ".");
+			nng_listener_set_ms(listener, NNG_OPT_RECONNMINT, 1);
+			nng_listener_set_ms(
+			    listener, NNG_OPT_RECONNMAXT, 1000);
+			nng_socket_set_ms(sock, NNG_OPT_REQ_RESENDTIME, 2000);
+			nng_socket_set_ms(sock, NNG_OPT_RECVMAXSZ, 0);
+			nng_listener_set_ms(
+			    listener, NNG_OPT_ZT_PING_TIME, 10000);
+			nng_listener_set_ms(
+			    listener, NNG_OPT_ZT_CONN_TIME, 1000);
+		} else {
+			nng_socket_set_ms(sock, NNG_OPT_REQ_RESENDTIME, 2000);
+		}
+		nng_listener_start(listener, 0);
+
+		char    *buf = NULL;
 		size_t   sz;
 		uint64_t val;
 		count++;
@@ -127,10 +134,23 @@ server(const char *url)
 			if (rv != 0) {
 				fatal("nng_send", rv);
 			}
+			rv = nng_listener_close(listener);
+			if (rv != 0) {
+				fatal("nng_listener_close", rv);
+			}
+			rv = nng_close(sock);
+			if (rv != 0) {
+				fatal("nng_close", rv);
+			}
 			continue;
 		}
+		printf("say what?????");
 		// Unrecognized command, so toss the buffer.
 		nng_free(buf, sz);
+		rv = nng_close(sock);
+		if (rv != 0) {
+			fatal("nng_close", rv);
+		}
 	}
 }
 
@@ -141,7 +161,7 @@ client(const char *url)
 	nng_dialer dialer;
 	int        rv;
 	size_t     sz;
-	char *     buf = NULL;
+	char      *buf = NULL;
 	uint8_t    cmd[sizeof(uint64_t)];
 	int        sleep = 0;
 
@@ -156,8 +176,10 @@ client(const char *url)
 	}
 
 	if (strncmp(url, "zt://", 5) == 0) {
-		printf("ZeroTier transport will store its keys in current working directory\n");
-		printf("The server and client instances must run in separate directories.\n");
+		printf("ZeroTier transport will store its keys in current "
+		       "working directory\n");
+		printf("The server and client instances must run in separate "
+		       "directories.\n");
 		nng_dialer_set_string(dialer, NNG_OPT_ZT_HOME, ".");
 		nng_dialer_set_ms(dialer, NNG_OPT_RECONNMINT, 1);
 		nng_dialer_set_ms(dialer, NNG_OPT_RECONNMAXT, 1000);
@@ -189,11 +211,11 @@ client(const char *url)
 		} else {
 			printf("CLIENT: GOT WRONG SIZE!\n");
 		}
-		nng_msleep(sleep);
-		sleep++;
-		if (sleep == 4) {
-			sleep = 4000;
-		}
+		//		nng_msleep(sleep);
+		//		sleep++;
+		//		if (sleep == 4) {
+		//			sleep = 4000;
+		//		}
 	}
 
 	// This assumes that buf is ASCIIZ (zero terminated).
